@@ -1,7 +1,8 @@
 <!-- Greeting -->
-# Hey there! :wave::smiley:
+# Hey there,welcome! :wave::smiley:
 
 <!--Introduction -->
+I'm working on NTT Data Business Solutions as a Customer Engagement Manager and BI Consultant.
 I've been working as a BI consultant since 2018. 🖥 I'm known as a willing to learn new technologies person.
 I'm also interested in Sports Analytics in my free time 🏃 🏃‍♀️ 🏀
 <br>
