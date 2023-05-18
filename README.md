@@ -2,9 +2,9 @@
 # Hey there! :wave::smiley:
 
 <!--Introduction -->
-I'm Cagatay! I'm a **Business Intelligence Consultant**:iphone:, looking to solve **real-world problems**:earth_asia:. I'm passionate about create **value** from everything, creating or anaylize the data:computer: and tools to show insights, and **solving problems**.
+I've been working as a BI consultant since 2018. 🖥 I'm known as a willing to learn new technologies person.
+I'm also interested in Sports Analytics in my free time. 
 <br>
-<img src="https://media.giphy.com/media/LnQjpWaON8nhr21vNW/giphy.gif" width="40"> <em><b>I love connecting with different people</b> so if you want to say <b>hi, I'll be happy to meet you more!</b> :blush:</em>
 
 <!-- Your badges -->
 [![Linkedin](https://img.shields.io/badge/-cagataycevik-blue?style=flat&logo=Linkedin&logoColor=white)](https://www.linkedin.com/in/cagataycevik)
@@ -30,7 +30,7 @@ I'm Cagatay! I'm a **Business Intelligence Consultant**:iphone:, looking to solv
 	- SSAS
 	- Power BI Data Modelling Layer
 	- Information Design Tool
-	- SAP HANA Modelling & SAP HANA Cloud Modelling
+	- SAP HANA Modelling & SAP HANA Cloud Modelling,
 * Database:
 	- MSSQL
 	- SQLite
@@ -44,13 +44,20 @@ I'm Cagatay! I'm a **Business Intelligence Consultant**:iphone:, looking to solv
 * ETL Tools: 
 	- SSIS
 	- SAP Data Services
+* Other: 
+	- SAP BW 
+	- Bex Query
+	- Celonis 
+	- DAX Studio
+	- Tabular Editor 2 
+	- ALM Toolkit
 
 **Projects**
 This project that I was consultant during my career:
 *NTT Data Business Solutions
 	- Daimler AG - Mercedez-Benz Turkey  - Evobus 
 	- E-bebek
-	- Zülfikarlar Holding
+	- Zülfikarlar Holding (Turkish Petroleum Distribution Corporation)
 *Logosoft Information Technology
 	- SME Companies
 
@@ -68,19 +75,3 @@ This project that I was consultant during my career:
 <!-- Credit -->
 ### Credit to 
 - [**GIPHY**](https://giphy.com/) for GIFs. 
-
-
-
-<!--
-**Cagatay Cevik** is a ✨ _special_ ✨ repository because its `README.md` (this file) appears on your GitHub profile.
-
-Here are some ideas to get you started:
-
-- 🔭 I’m currently working on NTT Data Business Solutions Turkey
-- 🌱 I’m currently learning SAP HANA Cloud
-- 🤔 I’m looking for help with ...
-- 💬 Ask me about anything BI Tools or Data Analysis!
-- 📫 How to reach me: please use my social medias.
-- 😄 Pronouns: ...
-- ⚡ Fun fact: ...
--->
