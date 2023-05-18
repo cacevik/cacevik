@@ -3,13 +3,13 @@
 
 <!--Introduction -->
 I've been working as a BI consultant since 2018. 🖥 I'm known as a willing to learn new technologies person.
-I'm also interested in Sports Analytics in my free time. 
+I'm also interested in Sports Analytics in my free time 🏃 🏃‍♀️ 🏀
 <br>
 
 <!-- Your badges -->
 [![Linkedin](https://img.shields.io/badge/-cagataycevik-blue?style=flat&logo=Linkedin&logoColor=white)](https://www.linkedin.com/in/cagataycevik)
 [![Gmail](https://img.shields.io/badge/-cagatayycevikk-c14438?style=flat&logo=Gmail&logoColor=white)](mailto:cagatayycevikk@gmail.com)
-[![Medium](https://img.shields.io/badge/-@cagataycevik-black?style=flat&logo=Medium&logoColor=white)](https://medium.com/@cagataycevik)
+[![Medium](https://img.shields.io/badge/-@cagataycevikk-black?style=flat&logo=Medium&logoColor=white)](https://medium.com/@cagataycevikk)
 [![Twitter](https://img.shields.io/badge/-cagataycevikk-c13584?style=flat&labelColor=c13584&logo=twitter&logoColor=white)](https://twitter.com/cagataycevikk)
 
 
@@ -18,7 +18,6 @@ I'm also interested in Sports Analytics in my free time.
 * Building end-to-end BI systems on companys 🔎,
 * Consulting to customer for solving their real problems📈,
 * Learning and practicing with new data analysis tools or languages🎒.
-* 🔜
 
 ### Languages and Tools: <img src="https://media.giphy.com/media/WUlplcMpOCEmTGBtBW/giphy.gif" width="30">
 * BI and Data Visualization Tools:
