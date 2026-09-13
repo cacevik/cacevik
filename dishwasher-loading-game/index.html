@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Bulaşık Makinesi Doldurma</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app">
+
+    <!-- ANA MENÜ -->
+    <section id="screen-menu" class="screen active">
+      <div class="menu-card">
+        <h1>🍽️ Bulaşık Dizme Ustası</h1>
+        <p class="subtitle">Bulaşıkları makineye en düzgün şekilde diz, puanı topla!</p>
+        <div id="level-select" class="level-grid"></div>
+        <p class="hint">Bir bölüm seç ve başla. Tabakları alt rafa, bardak/kaseleri üst rafa,
+        çatal-kaşık-bıçağı sepete doğru şekilde ve aralıklı yerleştir.</p>
+      </div>
+    </section>
+
+    <!-- OYUN EKRANI -->
+    <section id="screen-game" class="screen">
+      <div id="hud">
+        <div id="hud-left">
+          <button id="btn-pause" class="icon-btn" aria-label="Duraklat">⏸</button>
+          <span id="hud-level">Bölüm 1</span>
+        </div>
+        <div id="hud-center">
+          <div class="timer-bar-wrap">
+            <div id="timer-bar"></div>
+          </div>
+          <span id="hud-time">60</span>
+        </div>
+        <div id="hud-right">
+          <span id="hud-score">Puan: 0</span>
+        </div>
+      </div>
+
+      <canvas id="game-canvas"></canvas>
+
+      <div id="tray-wrap">
+        <div id="tray" aria-label="Bekleyen bulaşıklar"></div>
+      </div>
+    </section>
+
+    <!-- DURAKLATMA -->
+    <section id="screen-pause" class="screen overlay">
+      <div class="menu-card">
+        <h2>Duraklatıldı</h2>
+        <button class="btn primary" id="btn-resume">Devam Et</button>
+        <button class="btn" id="btn-restart-from-pause">Bölümü Yeniden Başlat</button>
+        <button class="btn" id="btn-quit-to-menu">Ana Menü</button>
+      </div>
+    </section>
+
+    <!-- BÖLÜM SONU -->
+    <section id="screen-result" class="screen overlay">
+      <div class="menu-card">
+        <h2 id="result-title">Bölüm Tamamlandı!</h2>
+        <div id="result-stars" class="stars">☆☆☆</div>
+        <div id="result-breakdown"></div>
+        <div id="result-score" class="result-score">Toplam Puan: 0</div>
+        <button class="btn primary" id="btn-next-level">Sonraki Bölüm</button>
+        <button class="btn" id="btn-retry-level">Tekrar Dene</button>
+        <button class="btn" id="btn-result-to-menu">Ana Menü</button>
+      </div>
+    </section>
+
+  </div>
+
+  <script src="js/vendor/matter.min.js"></script>
+  <script src="js/iso.js"></script>
+  <script src="js/items.js"></script>
+  <script src="js/zones.js"></script>
+  <script src="js/levels.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/game.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
