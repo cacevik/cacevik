@@ -53,6 +53,7 @@ const Scene3D = {
     this.updateCameraFromOrbit();
 
     this.raycaster = new THREE.Raycaster();
+    this.buildEnvironment();
 
     const ambient = new THREE.AmbientLight(0xffffff, 0.5);
     this.scene.add(ambient);
@@ -173,16 +174,22 @@ const Scene3D = {
     const group = new THREE.Group();
     group.position.set(zone.center.x, zone.center.y, zone.center.z);
 
-    const tubColor = 0xc9ced2;
-    const floorMat = new THREE.MeshStandardMaterial({ color: tubColor, roughness: 0.6, metalness: 0.08 });
+    // Gerçek makinelerde iç kazan genelde koyu antrasit/paslanmaz renktedir —
+    // parlak krom tellerle güçlü kontrast oluşturur (açık gri bir kova gibi
+    // görünmesini engeller).
+    const tubColor = 0x3c4044;
+    const floorMat = new THREE.MeshStandardMaterial({ color: tubColor, roughness: 0.55, metalness: 0.2 });
     const floor = new THREE.Mesh(new THREE.BoxGeometry(zone.w, 0.025, zone.d), floorMat);
     floor.receiveShadow = true;
     floor.userData.zoneId = zone.id;
     group.add(floor);
     zone.floorMesh = floor;
 
-    const wireColor = blendHex(zone.color, 0xd7dbdd, 0.55);
-    const wireMat = new THREE.MeshStandardMaterial({ color: wireColor, roughness: 0.35, metalness: 0.55 });
+    // Parlak krom tel — kategori rengi artık sadece hafif bir ton olarak
+    // karışıyor, ağırlıklı olarak gerçek bir metal raf gibi parlasın diye.
+    const wireColor = blendHex(0xe4e8ea, zone.color, 0.22);
+    const wireMat = new THREE.MeshStandardMaterial({ color: wireColor, roughness: 0.2, metalness: 0.85 });
+    const tipMat = new THREE.MeshStandardMaterial({ color: 0xd6432c, roughness: 0.45, metalness: 0.15 });
 
     if (zone.id === 'basket') {
       const wallMat = new THREE.MeshStandardMaterial({
@@ -202,6 +209,7 @@ const Scene3D = {
     } else {
       this.buildWireFloor(group, zone, wireMat);
       this.buildWireRim(group, zone, wireMat);
+      this.buildTineRows(group, zone, wireMat, tipMat);
     }
 
     this.scene.add(group);
@@ -237,6 +245,46 @@ const Scene3D = {
     }
     cross.castShadow = true;
     group.add(cross);
+  },
+
+  // Gerçek raflardaki tabak tutucu kalkık "diş" sıraları — düz tel ızgaradan
+  // en çok eksik olan, rafı gerçekten raf gibi gösteren detay. Bazı diş
+  // uçlarında (gerçek makinelerdeki gibi) kırmızı/turuncu plastik kapak olur.
+  buildTineRows(group, zone, wireMat, tipMat) {
+    const rows = 2;
+    const tinesPerRow = Math.max(6, Math.round(zone.w / 0.11));
+    const tineH = zone.wallH * 0.55;
+    const tineR = 0.007;
+    const dummy = new THREE.Object3D();
+    const total = rows * tinesPerRow;
+    const tines = new THREE.InstancedMesh(new THREE.CylinderGeometry(tineR * 0.35, tineR, tineH, 6), wireMat, total);
+
+    const tipPositions = [];
+    let idx = 0;
+    for (let r = 0; r < rows; r++) {
+      const z = -zone.d / 2 + (zone.d * (r + 1)) / (rows + 1);
+      for (let i = 0; i < tinesPerRow; i++) {
+        const x = -zone.w / 2 + 0.06 + (i * (zone.w - 0.12)) / (tinesPerRow - 1);
+        const tilt = (i % 2 === 0 ? 1 : -1) * 0.24;
+        dummy.position.set(x, tineH / 2, z);
+        dummy.rotation.set(0, 0, tilt);
+        dummy.updateMatrix();
+        tines.setMatrixAt(idx, dummy.matrix);
+        if (i % 3 === 0) {
+          tipPositions.push({ x: x + Math.sin(tilt) * tineH * 0.5, y: tineH * 0.98, z });
+        }
+        idx++;
+      }
+    }
+    tines.castShadow = true;
+    group.add(tines);
+
+    const capGeo = new THREE.SphereGeometry(tineR * 1.9, 6, 6);
+    tipPositions.forEach((p) => {
+      const cap = new THREE.Mesh(capGeo, tipMat);
+      cap.position.set(p.x, p.y, p.z);
+      group.add(cap);
+    });
   },
 
   buildWireRim(group, zone, wireMat) {
