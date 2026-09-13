@@ -324,6 +324,12 @@ const Game = {
       const zone = Zones[entry.meta.zoneId];
       const pos = zone.toScreen(entry.body.position.x, entry.body.position.y);
       const scale = Iso.avgScale(zone.transform);
+      Iso.drawGroundShadow(ctx, pos.x, pos.y, entry.meta.approxRadius * scale, entry.meta.approxRadius * scale * 0.6);
+    }
+    for (const entry of sorted) {
+      const zone = Zones[entry.meta.zoneId];
+      const pos = zone.toScreen(entry.body.position.x, entry.body.position.y);
+      const scale = Iso.avgScale(zone.transform);
       const def = ITEM_TYPES[entry.meta.typeId];
       def.draw(ctx, pos.x, pos.y, scale, entry.body.angle);
     }

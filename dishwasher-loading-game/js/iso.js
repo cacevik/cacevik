@@ -103,6 +103,15 @@ Iso.drawPlatform = function (ctx, t, w, h, depth, baseColor) {
   return { a, b, c, d };
 };
 
+// Nesnenin altına, raf yüzeyiyle rengi yakın olsa bile ayırt edilmesini
+// sağlayan koyu bir "zemin gölgesi" çizer.
+Iso.drawGroundShadow = function (ctx, x, y, rx, ry) {
+  ctx.beginPath();
+  ctx.ellipse(x, y + ry * 0.18, rx * 1.08, ry * 0.85, 0, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(6, 16, 22, 0.32)';
+  ctx.fill();
+};
+
 Iso.drawPeg = function (ctx, t, lx, ly, r) {
   const p = Iso.toScreen(t, lx, ly);
   const s = Iso.avgScale(t);

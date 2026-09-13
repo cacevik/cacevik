@@ -7,7 +7,7 @@ const ZONE_ORDER = ['topRack', 'bottomRack', 'basket'];
 
 const ZONE_BASE = {
   topRack: { label: 'Üst Raf', category: 'top', physW: 360, physH: 130, color: '#7fb8cf', gap: 40 },
-  bottomRack: { label: 'Alt Raf', category: 'bottom', physW: 420, physH: 190, color: '#c7d0d6', gap: 40 },
+  bottomRack: { label: 'Alt Raf', category: 'bottom', physW: 420, physH: 190, color: '#9aabb5', gap: 40 },
   basket: { label: 'Çatal-Kaşık Sepeti', category: 'basket', physW: 120, physH: 190, color: '#e0b25a', gap: 0 },
 };
 
@@ -112,9 +112,9 @@ function buildZonesPhysics(world) {
 // Dikey istifleme (mobil dikey ekrana uygun): üstte Üst Raf, ortada geniş
 // Alt Raf, altta Çatal-Kaşık Sepeti — her biri hafif izometrik eğimle çizilir.
 function layoutZones(canvasW, canvasH) {
-  const shearTop = canvasW * 0.05;
-  const shearBottom = canvasW * 0.07;
-  const shearBasket = canvasW * 0.03;
+  const shearTop = canvasW * 0.02;
+  const shearBottom = canvasW * 0.03;
+  const shearBasket = canvasW * 0.015;
 
   const padTop = canvasH * 0.04;
   const topH = canvasH * 0.22;
