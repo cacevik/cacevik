@@ -1,6 +1,15 @@
 // Three.js sahne kurulumu: kamera (dokunarak döndürülebilir "orbit"),
 // ışıklandırma, raf/sepet 3D görselleri, raycast ile bırakma hedefi tespiti.
 
+function blendHex(hexA, hexB, t) {
+  const ar = (hexA >> 16) & 0xff, ag = (hexA >> 8) & 0xff, ab = hexA & 0xff;
+  const br = (hexB >> 16) & 0xff, bg = (hexB >> 8) & 0xff, bb = hexB & 0xff;
+  const r = Math.round(ar + (br - ar) * t);
+  const g = Math.round(ag + (bg - ag) * t);
+  const b = Math.round(ab + (bb - ab) * t);
+  return (r << 16) | (g << 8) | b;
+}
+
 const Scene3D = {
   renderer: null,
   scene: null,
@@ -33,9 +42,11 @@ const Scene3D = {
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFShadowMap;
 
+    // Orta tonlu, "fotoğraf stüdyosu" gri fon — hem açık (Solvex) hem koyu
+    // (Nordlux) gövde renklerine karşı kontrast versin diye.
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0x0d2b3a);
-    this.scene.fog = new THREE.Fog(0x0d2b3a, 3.5, 6.5);
+    this.scene.background = new THREE.Color(0x8f969c);
+    this.scene.fog = new THREE.Fog(0x8f969c, 6, 13);
 
     this.camera = new THREE.PerspectiveCamera(42, 1, 0.1, 20);
     this.orbit.target = new THREE.Vector3(0, 0.42, 0.02);
@@ -43,11 +54,11 @@ const Scene3D = {
 
     this.raycaster = new THREE.Raycaster();
 
-    const ambient = new THREE.AmbientLight(0xffffff, 0.55);
+    const ambient = new THREE.AmbientLight(0xffffff, 0.5);
     this.scene.add(ambient);
-    const hemi = new THREE.HemisphereLight(0xbfe3ff, 0x1a2530, 0.5);
+    const hemi = new THREE.HemisphereLight(0xdfe6ea, 0x50565a, 0.45);
     this.scene.add(hemi);
-    const dir = new THREE.DirectionalLight(0xffffff, 0.9);
+    const dir = new THREE.DirectionalLight(0xfff3e0, 0.95);
     dir.position.set(1.6, 3.2, 1.8);
     dir.castShadow = true;
     dir.shadow.mapSize.set(768, 768);
@@ -59,71 +70,198 @@ const Scene3D = {
     dir.shadow.camera.far = 5;
     dir.shadow.bias = -0.003;
     this.scene.add(dir);
+    const fill = new THREE.DirectionalLight(0xcfe8ff, 0.18);
+    fill.position.set(-2, 1.5, -1.5);
+    this.scene.add(fill);
 
     this.buildGround();
     ZONE3D_ORDER.forEach((id) => this.buildZoneVisual(Zones3D[id]));
     this.setBrand(BRANDS.solvex);
   },
 
+  // Metal/plastik yüzeylerde gerçekçi yansımalar için basit, prosedürel bir
+  // "ortam" (kutu şeklinde mutfak/gökyüzü gradyanı) üretip PBR environment
+  // map olarak kullanır — harici bir HDRI dosyasına ihtiyaç duymadan.
+  buildEnvironment() {
+    const envScene = new THREE.Scene();
+    const c = document.createElement('canvas');
+    c.width = 16; c.height = 128;
+    const ctx = c.getContext('2d');
+    const grad = ctx.createLinearGradient(0, 0, 0, 128);
+    grad.addColorStop(0, '#d3d9dd');
+    grad.addColorStop(0.45, '#9aa1a6');
+    grad.addColorStop(1, '#5b6165');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 16, 128);
+    const tex = new THREE.CanvasTexture(c);
+    const sky = new THREE.Mesh(
+      new THREE.SphereGeometry(6, 16, 16),
+      new THREE.MeshBasicMaterial({ map: tex, side: THREE.BackSide })
+    );
+    envScene.add(sky);
+    const glow = new THREE.PointLight(0xffffff, 0.5, 10);
+    glow.position.set(2, 3, 2);
+    envScene.add(glow);
+
+    const pmrem = new THREE.PMREMGenerator(this.renderer);
+    const rt = pmrem.fromScene(envScene, 0.05);
+    this.scene.environment = rt.texture;
+    pmrem.dispose();
+  },
+
+  makeCounterTexture() {
+    const c = document.createElement('canvas');
+    c.width = 256; c.height = 256;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#c7cdd2';
+    ctx.fillRect(0, 0, 256, 256);
+    for (let i = 0; i < 900; i++) {
+      const x = Math.random() * 256, y = Math.random() * 256;
+      ctx.fillStyle = `rgba(255,255,255,${Math.random() * 0.05})`;
+      ctx.fillRect(x, y, 2, 2);
+      ctx.fillStyle = `rgba(0,0,0,${Math.random() * 0.04})`;
+      ctx.fillRect(Math.random() * 256, Math.random() * 256, 2, 2);
+    }
+    const tex = new THREE.CanvasTexture(c);
+    tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+    tex.repeat.set(3, 3);
+    return tex;
+  },
+
   buildGround() {
     const ground = new THREE.Mesh(
-      new THREE.CircleGeometry(3.2, 48),
-      new THREE.MeshStandardMaterial({ color: 0x0a2230, roughness: 0.9 })
+      new THREE.CircleGeometry(3.4, 48),
+      new THREE.MeshStandardMaterial({ color: 0xc7cdd2, roughness: 0.75, metalness: 0.05, map: this.makeCounterTexture() })
     );
     ground.rotation.x = -Math.PI / 2;
     ground.position.y = -0.02;
     ground.receiveShadow = true;
     this.scene.add(ground);
+
+    const backdrop = new THREE.Mesh(
+      new THREE.PlaneGeometry(6, 3),
+      new THREE.MeshStandardMaterial({ color: 0xa4abb0, roughness: 0.95 })
+    );
+    backdrop.position.set(0, 1.3, -2.2);
+    this.scene.add(backdrop);
   },
 
-  makeGridTexture(hex) {
+  makePerforatedAlphaMap() {
     const c = document.createElement('canvas');
-    c.width = 128; c.height = 128;
+    c.width = 64; c.height = 64;
     const ctx = c.getContext('2d');
-    ctx.fillStyle = hex;
-    ctx.fillRect(0, 0, 128, 128);
-    ctx.strokeStyle = 'rgba(0,0,0,0.18)';
-    ctx.lineWidth = 3;
-    for (let i = 0; i <= 128; i += 16) {
-      ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, 128); ctx.stroke();
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, 64, 64);
+    ctx.fillStyle = '#000';
+    for (let y = 6; y < 64; y += 12) {
+      for (let x = 6; x < 64; x += 12) {
+        ctx.beginPath();
+        ctx.arc(x, y, 3.2, 0, Math.PI * 2);
+        ctx.fill();
+      }
     }
     const tex = new THREE.CanvasTexture(c);
     tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+    tex.repeat.set(4, 2);
     return tex;
   },
 
+  // Gerçek bir bulaşık makinesi rafı gibi görünmesi için raflar düz boyalı
+  // kutular yerine ince "tel" geometrisiyle (InstancedMesh) inşa edilir; sepet
+  // ise delikli plastik görünümü versin diye alfa maskeli düz duvarlar kullanır.
   buildZoneVisual(zone) {
     const group = new THREE.Group();
     group.position.set(zone.center.x, zone.center.y, zone.center.z);
 
-    const floorColorHex = '#' + zone.color.toString(16).padStart(6, '0');
-    const floorMat = new THREE.MeshStandardMaterial({
-      color: zone.color, roughness: 0.85, metalness: 0.05,
-      map: this.makeGridTexture(floorColorHex),
-    });
-    const floor = new THREE.Mesh(new THREE.BoxGeometry(zone.w, 0.03, zone.d), floorMat);
+    const tubColor = 0xc9ced2;
+    const floorMat = new THREE.MeshStandardMaterial({ color: tubColor, roughness: 0.6, metalness: 0.08 });
+    const floor = new THREE.Mesh(new THREE.BoxGeometry(zone.w, 0.025, zone.d), floorMat);
     floor.receiveShadow = true;
     floor.userData.zoneId = zone.id;
     group.add(floor);
     zone.floorMesh = floor;
 
-    const wallMat = new THREE.MeshStandardMaterial({ color: zone.color, roughness: 0.7, metalness: 0.1 });
-    const wt = 0.03;
-    const wallH = zone.wallH;
-    const wallY = wallH / 2;
-    const front = new THREE.Mesh(new THREE.BoxGeometry(zone.w + wt * 2, wallH, wt), wallMat);
-    front.position.set(0, wallY, zone.d / 2);
-    const back = front.clone(); back.position.z = -zone.d / 2;
-    const left = new THREE.Mesh(new THREE.BoxGeometry(wt, wallH, zone.d + wt * 2), wallMat);
-    left.position.set(-zone.w / 2, wallY, 0);
-    const right = left.clone(); right.position.x = zone.w / 2;
-    [front, back, left, right].forEach((m) => { m.castShadow = true; m.receiveShadow = true; group.add(m); });
+    const wireColor = blendHex(zone.color, 0xd7dbdd, 0.55);
+    const wireMat = new THREE.MeshStandardMaterial({ color: wireColor, roughness: 0.35, metalness: 0.55 });
+
+    if (zone.id === 'basket') {
+      const wallMat = new THREE.MeshStandardMaterial({
+        color: zone.color, roughness: 0.5, metalness: 0.1,
+        transparent: true, alphaMap: this.makePerforatedAlphaMap(), alphaTest: 0.3,
+      });
+      const wt = 0.025;
+      const wallH = zone.wallH;
+      const wallY = wallH / 2;
+      const front = new THREE.Mesh(new THREE.BoxGeometry(zone.w + wt * 2, wallH, wt), wallMat);
+      front.position.set(0, wallY, zone.d / 2);
+      const back = front.clone(); back.position.z = -zone.d / 2;
+      const left = new THREE.Mesh(new THREE.BoxGeometry(wt, wallH, zone.d + wt * 2), wallMat);
+      left.position.set(-zone.w / 2, wallY, 0);
+      const right = left.clone(); right.position.x = zone.w / 2;
+      [front, back, left, right].forEach((m) => { m.castShadow = true; m.receiveShadow = true; group.add(m); });
+    } else {
+      this.buildWireFloor(group, zone, wireMat);
+      this.buildWireRim(group, zone, wireMat);
+    }
 
     this.scene.add(group);
     zone.group = group;
+  },
 
-    // yerel -> dünya dönüştürücüler zaten Zone3D üzerinde tanımlı (center offset).
-    zone.floorMesh.userData.worldOffset = zone.center;
+  buildWireFloor(group, zone, wireMat) {
+    const wireR = 0.007;
+    const margin = 0.05;
+    const rows = Math.max(6, Math.round(zone.w / 0.075));
+    const dummy = new THREE.Object3D();
+
+    const along = new THREE.InstancedMesh(new THREE.CylinderGeometry(wireR, wireR, zone.d - margin, 6), wireMat, rows);
+    for (let i = 0; i < rows; i++) {
+      const x = -zone.w / 2 + margin / 2 + (i * (zone.w - margin)) / (rows - 1);
+      dummy.position.set(x, 0.014, 0);
+      dummy.rotation.set(Math.PI / 2, 0, 0);
+      dummy.updateMatrix();
+      along.setMatrixAt(i, dummy.matrix);
+    }
+    along.castShadow = true;
+    along.receiveShadow = true;
+    group.add(along);
+
+    const crossCount = 3;
+    const cross = new THREE.InstancedMesh(new THREE.CylinderGeometry(wireR * 1.3, wireR * 1.3, zone.w - margin, 6), wireMat, crossCount);
+    for (let j = 0; j < crossCount; j++) {
+      const z = -zone.d / 2 + margin / 2 + (j * (zone.d - margin)) / (crossCount - 1);
+      dummy.position.set(0, 0.02, z);
+      dummy.rotation.set(0, 0, Math.PI / 2);
+      dummy.updateMatrix();
+      cross.setMatrixAt(j, dummy.matrix);
+    }
+    cross.castShadow = true;
+    group.add(cross);
+  },
+
+  buildWireRim(group, zone, wireMat) {
+    const barT = 0.013;
+    const y = zone.wallH;
+    const frontBar = new THREE.Mesh(new THREE.BoxGeometry(zone.w, barT, barT), wireMat);
+    frontBar.position.set(0, y, zone.d / 2);
+    const backBar = frontBar.clone(); backBar.position.z = -zone.d / 2;
+    const leftBar = new THREE.Mesh(new THREE.BoxGeometry(barT, barT, zone.d), wireMat);
+    leftBar.position.set(-zone.w / 2, y, 0);
+    const rightBar = leftBar.clone(); rightBar.position.x = zone.w / 2;
+    [frontBar, backBar, leftBar, rightBar].forEach((m) => { m.castShadow = true; group.add(m); });
+
+    const postR = 0.009;
+    const corners = [
+      [-zone.w / 2, -zone.d / 2], [zone.w / 2, -zone.d / 2],
+      [-zone.w / 2, zone.d / 2], [zone.w / 2, zone.d / 2],
+      [0, -zone.d / 2], [0, zone.d / 2],
+    ];
+    corners.forEach(([px, pz]) => {
+      const post = new THREE.Mesh(new THREE.CylinderGeometry(postR, postR, y, 6), wireMat);
+      post.position.set(px, y / 2, pz);
+      post.castShadow = true;
+      group.add(post);
+    });
   },
 
   makeNameplateTexture(brand) {
