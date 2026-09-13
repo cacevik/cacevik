@@ -6,10 +6,7 @@
 
   function resize() {
     const rect = canvas.getBoundingClientRect();
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    canvas.width = Math.max(1, Math.round(rect.width * dpr));
-    canvas.height = Math.max(1, Math.round(rect.height * dpr));
-    Game.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    if (rect.width < 1 || rect.height < 1) return;
     Game.layout(rect.width, rect.height);
   }
 

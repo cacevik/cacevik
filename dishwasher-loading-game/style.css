@@ -95,6 +95,13 @@ html, body {
   color: var(--accent-warm);
   letter-spacing: 1px;
 }
+.level-btn .lvl-brand {
+  display: block;
+  font-size: 0.6rem;
+  margin-top: 3px;
+  color: var(--text-dim);
+  font-weight: 500;
+}
 
 .btn {
   display: block;
@@ -154,6 +161,13 @@ html, body {
 #hud-time { font-variant-numeric: tabular-nums; font-weight: 700; min-width: 28px; }
 #hud-score { font-weight: 700; color: var(--accent-warm); }
 #hud-level { font-weight: 700; }
+.brand-chip {
+  font-size: 0.68rem;
+  padding: 2px 7px;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.1);
+  color: var(--text-dim);
+}
 
 /* ---- Canvas / play field ---- */
 #screen-game { }

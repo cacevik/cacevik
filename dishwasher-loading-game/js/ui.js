@@ -31,7 +31,9 @@ function renderLevelSelect(container, onSelect) {
     btn.className = 'level-btn';
     btn.dataset.locked = (!attemptedPrev).toString();
     const stars = progress[level.id];
-    btn.innerHTML = `${level.id}<span class="lvl-stars">${stars !== undefined ? starString(stars) : '—'}</span>`;
+    const brand = getBrandForLevel(level.id);
+    btn.innerHTML = `${level.id}<span class="lvl-stars">${stars !== undefined ? starString(stars) : '—'}</span>` +
+      `<span class="lvl-brand">${brand.name}</span>`;
     if (attemptedPrev) {
       btn.addEventListener('click', () => onSelect(level.id));
     }
@@ -39,19 +41,14 @@ function renderLevelSelect(container, onSelect) {
   });
 }
 
-function iconCanvasFor(itemType) {
-  const c = document.createElement('canvas');
-  const size = 56;
-  const dpr = Math.min(window.devicePixelRatio || 1, 2);
-  c.width = size * dpr;
-  c.height = size * dpr;
-  c.style.width = size + 'px';
-  c.style.height = size + 'px';
-  const ctx = c.getContext('2d');
-  ctx.scale(dpr, dpr);
-  const def = ITEM_TYPES[itemType];
-  def.draw(ctx, size / 2, size / 2, 0.5, 0);
-  return c;
+const ITEM_EMOJI = {
+  plate: '🍽️', bigplate: '🥘', pot: '🍲', pan: '🍳',
+  bowl: '🥣', cup: '☕', glass: '🥤',
+  fork: '🍴', spoon: '🥄', knife: '🔪',
+};
+
+function trayIconHtml(itemType) {
+  return `<span style="font-size:30px;line-height:1">${ITEM_EMOJI[itemType] || '🍽️'}</span>`;
 }
 
 function renderTray(container, trayItems, onDragStart) {
@@ -60,7 +57,7 @@ function renderTray(container, trayItems, onDragStart) {
     const el = document.createElement('div');
     el.className = 'tray-item';
     el.dataset.uid = entry.uid;
-    el.appendChild(iconCanvasFor(entry.typeId));
+    el.innerHTML = trayIconHtml(entry.typeId);
     const tag = document.createElement('span');
     tag.className = 'cat-tag';
     const catLabel = { bottom: 'Alt', top: 'Üst', basket: 'Sepet' }[ITEM_TYPES[entry.typeId].category];
@@ -74,6 +71,7 @@ function renderTray(container, trayItems, onDragStart) {
 function updateHud(state) {
   const level = state.level;
   document.getElementById('hud-level').textContent = level.name.split('—')[0].trim();
+  if (state.brand) document.getElementById('hud-brand').textContent = `${state.brand.name} ${state.brand.model}`;
   document.getElementById('hud-score').textContent = `Puan: ${Math.round(state.liveScore)}`;
   const pct = Math.max(0, state.timeLeft / level.time);
   document.getElementById('timer-bar').style.transform = `scaleX(${pct})`;

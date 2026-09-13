@@ -1,234 +1,171 @@
-// Bulaşık türleri: fiziksel gövde tanımı + izometrik/karikatür stil çizim.
+// Bulaşık türleri — gerçek 3D mesh'ler (Three.js primitifleriyle inşa edilir).
 // category: 'bottom' (alt raf), 'top' (üst raf), 'basket' (çatal-kaşık sepeti)
 
-const ITEM_TYPES = {
-  plate: {
-    id: 'plate', name: 'Tabak', category: 'bottom',
-    shape: 'circle', radius: 34, color: '#f4f6f8',
-    draw: drawPlate,
-  },
-  bigplate: {
-    id: 'bigplate', name: 'Servis Tabağı', category: 'bottom',
-    shape: 'circle', radius: 42, color: '#eef2f5',
-    draw: drawPlate,
-  },
-  pot: {
-    id: 'pot', name: 'Tencere', category: 'bottom',
-    shape: 'circle', radius: 40, color: '#c7cdd2',
-    draw: drawPot,
-  },
-  pan: {
-    id: 'pan', name: 'Tava', category: 'bottom',
-    shape: 'circle', radius: 38, color: '#5b5f66',
-    draw: drawPan,
-  },
-  bowl: {
-    id: 'bowl', name: 'Kase', category: 'top',
-    shape: 'circle', radius: 26, color: '#ffd97d',
-    draw: drawBowl,
-  },
-  cup: {
-    id: 'cup', name: 'Fincan', category: 'top',
-    shape: 'circle', radius: 18, color: '#ff8fa3',
-    draw: drawCup,
-  },
-  glass: {
-    id: 'glass', name: 'Bardak', category: 'top',
-    shape: 'circle', radius: 16, color: '#9fe8ff',
-    draw: drawGlass,
-  },
-  fork: {
-    id: 'fork', name: 'Çatal', category: 'basket',
-    shape: 'capsule', width: 10, height: 46, color: '#d8dde2',
-    draw: (ctx, x, y, s, rot) => drawCutlery(ctx, x, y, s, rot, 'fork'),
-  },
-  spoon: {
-    id: 'spoon', name: 'Kaşık', category: 'basket',
-    shape: 'capsule', width: 11, height: 44, color: '#e3e7ea',
-    draw: (ctx, x, y, s, rot) => drawCutlery(ctx, x, y, s, rot, 'spoon'),
-  },
-  knife: {
-    id: 'knife', name: 'Bıçak', category: 'basket',
-    shape: 'capsule', width: 9, height: 48, color: '#c9ced3',
-    draw: (ctx, x, y, s, rot) => drawCutlery(ctx, x, y, s, rot, 'knife'),
-  },
-};
-
-function drawPlate(ctx, x, y, s, rot, color) {
-  color = color || '#f4f6f8';
-  const r = 34 * s;
-  ctx.save();
-  ctx.translate(x, y);
-  ctx.rotate(rot || 0);
-  const grad = ctx.createRadialGradient(-r * 0.25, -r * 0.3, r * 0.1, 0, 0, r);
-  grad.addColorStop(0, '#ffffff');
-  grad.addColorStop(1, Iso.shade(color, -22));
-  ctx.beginPath();
-  ctx.ellipse(0, 0, r, r * 0.86, 0, 0, Math.PI * 2);
-  ctx.fillStyle = grad;
-  ctx.fill();
-  ctx.strokeStyle = 'rgba(20,30,35,0.55)';
-  ctx.lineWidth = 2;
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.ellipse(0, 0, r * 0.7, r * 0.6, 0, 0, Math.PI * 2);
-  ctx.strokeStyle = Iso.shade(color, -40);
-  ctx.lineWidth = 1.2;
-  ctx.stroke();
-  ctx.restore();
+function stdMat(color, roughness, metalness) {
+  return new THREE.MeshStandardMaterial({ color, roughness: roughness ?? 0.55, metalness: metalness ?? 0.05 });
 }
 
-function drawBowl(ctx, x, y, s, rot) {
-  const r = 26 * s;
-  ctx.save();
-  ctx.translate(x, y);
-  ctx.rotate(rot || 0);
-  const grad = ctx.createRadialGradient(-r * 0.2, -r * 0.2, r * 0.1, 0, 0, r);
-  grad.addColorStop(0, '#fff2cf');
-  grad.addColorStop(1, '#e0a63f');
-  ctx.beginPath();
-  ctx.ellipse(0, 0, r, r * 0.9, 0, 0, Math.PI * 2);
-  ctx.fillStyle = grad;
-  ctx.fill();
-  ctx.strokeStyle = 'rgba(20,30,35,0.55)';
-  ctx.lineWidth = 2;
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.ellipse(0, -r * 0.05, r * 0.6, r * 0.48, 0, 0, Math.PI * 2);
-  ctx.fillStyle = 'rgba(90,55,10,0.35)';
-  ctx.fill();
-  ctx.restore();
+function plateMesh(radius, color) {
+  const g = new THREE.Group();
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius * 0.94, 0.022, 40), stdMat(color, 0.35, 0.05));
+  g.add(base);
+  const rim = new THREE.Mesh(
+    new THREE.TorusGeometry(radius * 0.82, radius * 0.05, 10, 40),
+    stdMat(color, 0.3, 0.05)
+  );
+  rim.rotation.x = Math.PI / 2;
+  rim.position.y = 0.014;
+  g.add(rim);
+  return g;
 }
 
-function drawCup(ctx, x, y, s, rot) {
-  const r = 18 * s;
-  ctx.save();
-  ctx.translate(x, y);
-  ctx.rotate(rot || 0);
-  const grad = ctx.createRadialGradient(-r * 0.2, -r * 0.2, r * 0.1, 0, 0, r);
-  grad.addColorStop(0, '#ffd4dd');
-  grad.addColorStop(1, '#e05577');
-  ctx.beginPath();
-  ctx.ellipse(0, 0, r, r * 0.94, 0, 0, Math.PI * 2);
-  ctx.fillStyle = grad;
-  ctx.fill();
-  ctx.strokeStyle = 'rgba(20,30,35,0.55)';
-  ctx.lineWidth = 1.8;
-  ctx.stroke();
-  // sap (kulp)
-  ctx.beginPath();
-  ctx.ellipse(r * 0.95, 0, r * 0.32, r * 0.5, 0, -0.9, 0.9);
-  ctx.strokeStyle = '#a5304f';
-  ctx.lineWidth = r * 0.28;
-  ctx.stroke();
-  ctx.restore();
+function bowlMesh(radius, color) {
+  const g = new THREE.Group();
+  const bowl = new THREE.Mesh(
+    new THREE.SphereGeometry(radius, 28, 16, 0, Math.PI * 2, 0, Math.PI * 0.55),
+    stdMat(color, 0.4, 0.05)
+  );
+  bowl.rotation.x = Math.PI;
+  bowl.position.y = radius * 0.42;
+  g.add(bowl);
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(radius * 0.98, radius * 0.045, 8, 32), stdMat(color, 0.3, 0.05));
+  rim.rotation.x = Math.PI / 2;
+  rim.position.y = radius * 0.42;
+  g.add(rim);
+  return g;
 }
 
-function drawGlass(ctx, x, y, s, rot) {
-  const r = 16 * s;
-  ctx.save();
-  ctx.translate(x, y);
-  ctx.rotate(rot || 0);
-  const grad = ctx.createRadialGradient(-r * 0.2, -r * 0.2, r * 0.05, 0, 0, r);
-  grad.addColorStop(0, '#e7fbff');
-  grad.addColorStop(1, '#4fc4e0');
-  ctx.beginPath();
-  ctx.ellipse(0, 0, r, r * 0.95, 0, 0, Math.PI * 2);
-  ctx.fillStyle = grad;
-  ctx.globalAlpha = 0.9;
-  ctx.fill();
-  ctx.globalAlpha = 1;
-  ctx.strokeStyle = 'rgba(15,60,75,0.65)';
-  ctx.lineWidth = 1.8;
-  ctx.stroke();
-  ctx.restore();
+function cupMesh(radius, height, color) {
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius * 0.85, height, 24), stdMat(color, 0.4, 0.05));
+  body.position.y = height / 2;
+  g.add(body);
+  const handle = new THREE.Mesh(new THREE.TorusGeometry(radius * 0.55, radius * 0.13, 8, 16, Math.PI * 1.3), stdMat(color, 0.4, 0.05));
+  handle.position.set(radius * 0.95, height / 2, 0);
+  handle.rotation.y = Math.PI / 2;
+  handle.rotation.z = -0.3;
+  g.add(handle);
+  return g;
 }
 
-function drawPot(ctx, x, y, s, rot) {
-  const r = 40 * s;
-  ctx.save();
-  ctx.translate(x, y);
-  ctx.rotate(rot || 0);
-  // saplar
-  ctx.fillStyle = '#7d8790';
-  ctx.fillRect(-r * 1.28, -r * 0.14, r * 0.34, r * 0.28);
-  ctx.fillRect(r * 0.94, -r * 0.14, r * 0.34, r * 0.28);
-  const grad = ctx.createRadialGradient(-r * 0.25, -r * 0.25, r * 0.1, 0, 0, r);
-  grad.addColorStop(0, '#e7eaed');
-  grad.addColorStop(1, '#8b939a');
-  ctx.beginPath();
-  ctx.ellipse(0, 0, r, r * 0.88, 0, 0, Math.PI * 2);
-  ctx.fillStyle = grad;
-  ctx.fill();
-  ctx.strokeStyle = 'rgba(15,20,25,0.6)';
-  ctx.lineWidth = 2.2;
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.ellipse(0, 0, r * 0.68, r * 0.58, 0, 0, Math.PI * 2);
-  ctx.strokeStyle = '#aab1b7';
-  ctx.stroke();
-  ctx.restore();
+function glassMesh(radius, height, color) {
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(
+    new THREE.CylinderGeometry(radius * 1.08, radius * 0.82, height, 24),
+    new THREE.MeshPhysicalMaterial({ color, roughness: 0.05, metalness: 0, transparent: true, opacity: 0.55, transmission: 0.3 })
+  );
+  body.position.y = height / 2;
+  g.add(body);
+  return g;
 }
 
-function drawPan(ctx, x, y, s, rot) {
-  const r = 38 * s;
-  ctx.save();
-  ctx.translate(x, y);
-  ctx.rotate(rot || 0);
-  // uzun sap
-  ctx.fillStyle = '#2b2d31';
-  ctx.fillRect(r * 0.7, -r * 0.09, r * 1.1, r * 0.18);
-  const grad = ctx.createRadialGradient(-r * 0.25, -r * 0.25, r * 0.1, 0, 0, r);
-  grad.addColorStop(0, '#82868c');
-  grad.addColorStop(1, '#2f3236');
-  ctx.beginPath();
-  ctx.ellipse(0, 0, r, r * 0.88, 0, 0, Math.PI * 2);
-  ctx.fillStyle = grad;
-  ctx.fill();
-  ctx.strokeStyle = '#151618';
-  ctx.lineWidth = 2.2;
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.ellipse(0, 0, r * 0.66, r * 0.56, 0, 0, Math.PI * 2);
-  ctx.strokeStyle = '#54585d';
-  ctx.stroke();
-  ctx.restore();
+function potMesh(radius, height, color) {
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, height, 28), stdMat(color, 0.35, 0.4));
+  body.position.y = height / 2;
+  g.add(body);
+  const handleGeo = new THREE.BoxGeometry(radius * 0.55, radius * 0.14, radius * 0.14);
+  const hMat = stdMat(0x6b7278, 0.4, 0.5);
+  const h1 = new THREE.Mesh(handleGeo, hMat);
+  h1.position.set(radius * 1.18, height * 0.75, 0);
+  g.add(h1);
+  const h2 = new THREE.Mesh(handleGeo, hMat);
+  h2.position.set(-radius * 1.18, height * 0.75, 0);
+  g.add(h2);
+  return g;
 }
 
-function drawCutlery(ctx, x, y, s, rot, kind) {
-  ctx.save();
-  ctx.translate(x, y);
-  ctx.rotate(rot || 0);
-  const len = (kind === 'knife' ? 48 : kind === 'spoon' ? 44 : 46) * s;
-  const w = (kind === 'knife' ? 9 : kind === 'spoon' ? 11 : 10) * s;
-  ctx.fillStyle = '#d3d8dc';
-  ctx.strokeStyle = 'rgba(20,25,30,0.6)';
-  ctx.lineWidth = 1.4;
+function panMesh(radius, height, color) {
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius * 0.92, height, 28), stdMat(color, 0.3, 0.55));
+  body.position.y = height / 2;
+  g.add(body);
+  const handle = new THREE.Mesh(
+    new THREE.CylinderGeometry(radius * 0.09, radius * 0.09, radius * 1.6, 10),
+    stdMat(0x1c1d1f, 0.5, 0.2)
+  );
+  handle.rotation.z = Math.PI / 2;
+  handle.position.set(radius * 1.55, height * 0.6, 0);
+  g.add(handle);
+  return g;
+}
 
-  ctx.beginPath();
-  ctx.roundRect(-w / 2, -len / 2, w, len * 0.62, w / 2);
-  ctx.fill();
-  ctx.stroke();
+function cutleryMesh(kind, color) {
+  const g = new THREE.Group();
+  const len = kind === 'knife' ? 0.34 : kind === 'spoon' ? 0.3 : 0.32;
+  const w = kind === 'knife' ? 0.032 : kind === 'spoon' ? 0.036 : 0.034;
+  const handle = new THREE.Mesh(new THREE.BoxGeometry(w, 0.014, len * 0.6), stdMat(color, 0.4, 0.3));
+  handle.position.z = -len * 0.18;
+  g.add(handle);
 
   if (kind === 'fork') {
     for (let i = -1; i <= 1; i++) {
-      ctx.fillRect(i * (w / 3.2) - w / 14, -len / 2 - len * 0.28, w / 7, len * 0.3);
+      const prong = new THREE.Mesh(new THREE.BoxGeometry(w / 4, 0.012, len * 0.32), stdMat(color, 0.4, 0.3));
+      prong.position.set(i * (w / 2.6), 0, len * 0.32);
+      g.add(prong);
     }
   } else if (kind === 'spoon') {
-    ctx.beginPath();
-    ctx.ellipse(0, -len / 2 - len * 0.12, w * 0.85, len * 0.2, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
+    const head = new THREE.Mesh(new THREE.SphereGeometry(w * 1.3, 16, 10), stdMat(color, 0.4, 0.3));
+    head.scale.set(1, 0.35, 1.5);
+    head.position.z = len * 0.28;
+    g.add(head);
   } else if (kind === 'knife') {
-    ctx.beginPath();
-    ctx.moveTo(-w * 0.4, -len / 2);
-    ctx.lineTo(w * 0.4, -len / 2);
-    ctx.lineTo(w * 0.15, -len / 2 - len * 0.36);
-    ctx.lineTo(-w * 0.15, -len / 2 - len * 0.36);
-    ctx.closePath();
-    ctx.fillStyle = '#b9c0c5';
-    ctx.fill();
-    ctx.stroke();
+    const blade = new THREE.Mesh(new THREE.BoxGeometry(w * 0.9, 0.01, len * 0.55), stdMat(0xc7ccd0, 0.25, 0.6));
+    blade.position.z = len * 0.32;
+    g.add(blade);
   }
-  ctx.restore();
+  return g;
 }
+
+const ITEM_TYPES = {
+  plate: {
+    id: 'plate', name: 'Tabak', category: 'bottom', color: 0xf4f6f8,
+    approxRadius: 0.15, height: 0.03,
+    build: () => plateMesh(0.15, 0xf4f6f8),
+  },
+  bigplate: {
+    id: 'bigplate', name: 'Servis Tabağı', category: 'bottom', color: 0xeef2f5,
+    approxRadius: 0.185, height: 0.03,
+    build: () => plateMesh(0.185, 0xeef2f5),
+  },
+  pot: {
+    id: 'pot', name: 'Tencere', category: 'bottom', color: 0xc7cdd2,
+    approxRadius: 0.17, height: 0.16,
+    build: () => potMesh(0.15, 0.15, 0xc7cdd2),
+  },
+  pan: {
+    id: 'pan', name: 'Tava', category: 'bottom', color: 0x5b5f66,
+    approxRadius: 0.16, height: 0.06,
+    build: () => panMesh(0.155, 0.045, 0x5b5f66),
+  },
+  bowl: {
+    id: 'bowl', name: 'Kase', category: 'top', color: 0xffd97d,
+    approxRadius: 0.115, height: 0.09,
+    build: () => bowlMesh(0.11, 0xffd97d),
+  },
+  cup: {
+    id: 'cup', name: 'Fincan', category: 'top', color: 0xff8fa3,
+    approxRadius: 0.09, height: 0.075,
+    build: () => cupMesh(0.075, 0.065, 0xff8fa3),
+  },
+  glass: {
+    id: 'glass', name: 'Bardak', category: 'top', color: 0x9fe8ff,
+    approxRadius: 0.075, height: 0.11,
+    build: () => glassMesh(0.065, 0.1, 0x9fe8ff),
+  },
+  fork: {
+    id: 'fork', name: 'Çatal', category: 'basket', color: 0xd8dde2,
+    approxRadius: 0.17, height: 0.02,
+    build: () => cutleryMesh('fork', 0xd8dde2),
+  },
+  spoon: {
+    id: 'spoon', name: 'Kaşık', category: 'basket', color: 0xe3e7ea,
+    approxRadius: 0.16, height: 0.02,
+    build: () => cutleryMesh('spoon', 0xe3e7ea),
+  },
+  knife: {
+    id: 'knife', name: 'Bıçak', category: 'basket', color: 0xc9ced3,
+    approxRadius: 0.17, height: 0.018,
+    build: () => cutleryMesh('knife', 0xc9ced3),
+  },
+};

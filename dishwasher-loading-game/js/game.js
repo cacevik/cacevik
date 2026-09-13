@@ -1,11 +1,9 @@
-// Oyunun ana durum makinesi: fizik dünyası, sürükle-bırak girişi, puanlama.
+// Oyunun ana durum makinesi: 3D sahne, sürükle-bırak (raycast), kamera
+// döndürme, puanlama.
 
 const Game = {
   state: 'menu', // 'menu' | 'playing' | 'paused' | 'result'
-  engine: null,
-  world: null,
   canvas: null,
-  ctx: null,
   cssWidth: 0,
   cssHeight: 0,
 
@@ -13,22 +11,20 @@ const Game = {
   tray: [],
   totalToPlace: 0,
   breakdown: [],
-  bodies: [],
   liveScore: 0,
   timeLeft: 0,
 
   dragging: null,
-  popups: [],
+  orbitDrag: null,
 
   init(canvas) {
     this.canvas = canvas;
-    this.ctx = canvas.getContext('2d');
-    this.engine = Matter.Engine.create({ gravity: { x: 0, y: 1.15 } });
-    this.world = this.engine.world;
-    buildZonesPhysics(this.world);
+    Scene3D.init(canvas);
+    Physics3D.reset();
 
     renderLevelSelect(document.getElementById('level-select'), (id) => this.startLevel(id));
 
+    canvas.addEventListener('pointerdown', (e) => this.onCanvasPointerDown(e));
     window.addEventListener('pointermove', (e) => this.onDragMove(e));
     window.addEventListener('pointerup', (e) => this.onDragEnd(e));
     window.addEventListener('pointercancel', (e) => this.onDragEnd(e));
@@ -37,25 +33,24 @@ const Game = {
   layout(cssWidth, cssHeight) {
     this.cssWidth = cssWidth;
     this.cssHeight = cssHeight;
-    layoutZones(cssWidth, cssHeight);
+    Scene3D.resize(cssWidth, cssHeight);
   },
 
   startLevel(levelId) {
     const level = getLevel(levelId);
     this.level = level;
+    this.brand = getBrandForLevel(levelId);
+    Scene3D.setBrand(this.brand);
 
-    ZONE_ORDER.forEach((id) => {
-      const z = Zones[id];
+    ZONE3D_ORDER.forEach((id) => {
+      const z = Zones3D[id];
       z.setPegPattern((level.pegs && level.pegs[id]) || 0);
       z.setSprayArm(id === 'bottomRack' && !!level.sprayArm);
-      z.build(this.world);
     });
+    Scene3D.rebuildHazards();
 
-    if (this.bodies.length) {
-      Matter.World.remove(this.world, this.bodies.map((b) => b.body));
-    }
-    this.bodies = [];
-    this.popups = [];
+    Physics3D.bodies.forEach((b) => Scene3D.scene.remove(b.mesh));
+    Physics3D.reset();
 
     const shuffled = level.items.slice();
     for (let i = shuffled.length - 1; i > 0; i--) {
@@ -80,8 +75,8 @@ const Game = {
     this.startLevel(this.level.id);
   },
 
-  togglePause(forceState) {
-    if (this.state === 'playing' && forceState !== 'playing') {
+  togglePause() {
+    if (this.state === 'playing') {
       this.state = 'paused';
       toggleOverlay('screen-pause', true);
     } else if (this.state === 'paused') {
@@ -98,11 +93,19 @@ const Game = {
     showMainScreen('screen-menu');
   },
 
-  // ---------- Sürükle-bırak ----------
+  // ---------- Kamera döndürme (tepsi öğesi sürüklenmiyorken) ----------
+
+  onCanvasPointerDown(ev) {
+    if (this.state !== 'playing' || this.dragging) return;
+    this.orbitDrag = { lastX: ev.clientX, lastY: ev.clientY, moved: false };
+  },
+
+  // ---------- Sürükle-bırak (tepsiden) ----------
 
   onDragStart(ev, entry, el) {
     if (this.state !== 'playing') return;
     ev.preventDefault();
+    ev.stopPropagation();
     el.classList.add('active-drag');
     let ghost = document.getElementById('drag-ghost');
     if (!ghost) {
@@ -110,8 +113,7 @@ const Game = {
       ghost.id = 'drag-ghost';
       document.body.appendChild(ghost);
     }
-    ghost.innerHTML = '';
-    ghost.appendChild(iconCanvasFor(entry.typeId));
+    ghost.innerHTML = trayIconHtml(entry.typeId);
     ghost.style.left = ev.clientX + 'px';
     ghost.style.top = ev.clientY + 'px';
     ghost.style.display = 'block';
@@ -119,12 +121,24 @@ const Game = {
   },
 
   onDragMove(ev) {
-    if (!this.dragging) return;
-    this.dragging.ghost.style.left = ev.clientX + 'px';
-    this.dragging.ghost.style.top = ev.clientY + 'px';
+    if (this.dragging) {
+      this.dragging.ghost.style.left = ev.clientX + 'px';
+      this.dragging.ghost.style.top = ev.clientY + 'px';
+      return;
+    }
+    if (this.orbitDrag) {
+      const dx = ev.clientX - this.orbitDrag.lastX;
+      const dy = ev.clientY - this.orbitDrag.lastY;
+      if (Math.abs(dx) > 2 || Math.abs(dy) > 2) this.orbitDrag.moved = true;
+      this.orbitDrag.lastX = ev.clientX;
+      this.orbitDrag.lastY = ev.clientY;
+      Scene3D.rotateOrbit(-dx * 0.008, dy * 0.006);
+    }
   },
 
   onDragEnd(ev) {
+    if (this.orbitDrag) this.orbitDrag = null;
+
     const d = this.dragging;
     if (!d) return;
     this.dragging = null;
@@ -140,21 +154,21 @@ const Game = {
 
     this.removeFromTray(d.entry.uid);
 
-    const zone = findZoneAtScreenPoint(sx, sy);
-    if (!zone) {
+    const hit = Scene3D.raycastDrop(sx, sy);
+    if (!hit) {
       this.recordBreakdown(d.entry.typeId, null, 0, 'Lavaboya düştü, kırıldı! 💥');
-      this.addPopup(sx, sy, '💥 Kırıldı', '#f87171');
+      this.addPopupAtScreen(sx, sy, '💥 Kırıldı', '#f87171');
       this.checkLevelDone();
       return;
     }
 
+    const zone = hit.zone;
     const def = ITEM_TYPES[d.entry.typeId];
-    const approxRadius = def.shape === 'circle' ? def.radius * 0.85 : Math.max(def.width, def.height) / 2;
-    const phys = zone.screenToPhys(sx, sy);
-    const clampedX = Math.max(approxRadius + 2, Math.min(zone.physW - approxRadius - 2, phys.x - zone.physX)) + zone.physX;
-    const dropY = Math.max(approxRadius + 4, Math.min(zone.physH * 0.4, phys.y));
+    const local = zone.worldToLocalXZ(hit.point.x, hit.point.z);
+    const clamped = zone.clampLocalXZ(local.x, local.z, def.approxRadius);
+    const world = zone.localToWorldXZ(clamped.x, clamped.z);
 
-    this.spawnBody(d.entry.typeId, zone, clampedX, dropY, approxRadius);
+    this.spawnBody(d.entry.typeId, zone, world.x, zone.center.y + 0.55, world.z);
   },
 
   removeFromTray(uid) {
@@ -162,20 +176,27 @@ const Game = {
     renderTray(document.getElementById('tray'), this.tray, (ev, entry, el) => this.onDragStart(ev, entry, el));
   },
 
-  spawnBody(typeId, zone, px, py, approxRadius) {
+  spawnBody(typeId, zone, x, y, z) {
     const def = ITEM_TYPES[typeId];
-    let body;
-    const commonOpts = { restitution: 0.12, friction: 0.55, frictionAir: 0.025, density: 0.0018 };
-    if (def.shape === 'circle') {
-      body = Matter.Bodies.circle(px, py, approxRadius, commonOpts);
-    } else {
-      body = Matter.Bodies.rectangle(px, py, def.width, def.height, { ...commonOpts, chamfer: { radius: def.width / 2.4 } });
-    }
-    Matter.Body.setAngle(body, (Math.random() - 0.5) * 0.6);
-    Matter.Body.setAngularVelocity(body, (Math.random() - 0.5) * 0.05);
-    body.gameData = { typeId, zoneId: zone.id, scored: false, settleTimer: 0, approxRadius };
-    Matter.World.add(this.world, body);
-    this.bodies.push({ body, meta: body.gameData });
+    const mesh = def.build();
+    mesh.position.set(x, y, z);
+    mesh.rotation.y = Math.random() * Math.PI * 2;
+    mesh.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+    Scene3D.scene.add(mesh);
+
+    const entry = {
+      mesh,
+      position: new THREE.Vector3(x, y, z),
+      velocity: new THREE.Vector3((Math.random() - 0.5) * 0.15, 0, (Math.random() - 0.5) * 0.15),
+      angVel: new THREE.Vector3((Math.random() - 0.5) * 1.2, (Math.random() - 0.5) * 1.2, (Math.random() - 0.5) * 1.2),
+      zoneId: zone.id,
+      approxRadius: def.approxRadius,
+      typeId,
+      settled: false,
+      settleTimer: 0,
+      scored: false,
+    };
+    Physics3D.addBody(entry);
   },
 
   recordBreakdown(typeId, zoneId, score, detail) {
@@ -184,8 +205,19 @@ const Game = {
     updateHud(this);
   },
 
-  addPopup(x, y, text, color) {
-    this.popups.push({ x, y, text, color, life: 1.0 });
+  addPopupAtScreen(sx, sy, text, color) {
+    const rect = this.canvas.getBoundingClientRect();
+    const el = document.createElement('div');
+    el.textContent = text;
+    el.style.cssText = `position:fixed;left:${rect.left + sx}px;top:${rect.top + sy}px;transform:translate(-50%,-50%);
+      color:${color};font-weight:700;font-size:15px;pointer-events:none;z-index:40;text-shadow:0 1px 3px rgba(0,0,0,0.6);
+      transition:transform 0.9s ease-out, opacity 0.9s ease-out;`;
+    document.body.appendChild(el);
+    requestAnimationFrame(() => {
+      el.style.transform = 'translate(-50%, -180%)';
+      el.style.opacity = '0';
+    });
+    setTimeout(() => el.remove(), 950);
   },
 
   checkLevelDone() {
@@ -209,51 +241,31 @@ const Game = {
       return;
     }
 
-    Matter.Engine.update(this.engine, Math.min(dt * 1000, 33));
-
-    for (const entry of this.bodies) {
-      const { body, meta } = entry;
-      if (meta.scored) continue;
-      const speed = Matter.Vector.magnitude(body.velocity) + Math.abs(body.angularVelocity) * 8;
-      if (speed < 0.12) {
-        meta.settleTimer += dt;
-        if (meta.settleTimer > 0.35) {
-          this.scoreBody(entry);
-        }
-      } else {
-        meta.settleTimer = 0;
-      }
-    }
-
-    this.popups.forEach((p) => { p.life -= dt * 0.9; p.y -= dt * 22; });
-    this.popups = this.popups.filter((p) => p.life > 0);
-
+    Physics3D.step(dt, (entry) => this.scoreBody(entry));
     updateHud(this);
   },
 
   scoreBody(entry) {
-    const { body, meta } = entry;
-    meta.scored = true;
-    const zone = Zones[meta.zoneId];
-    const def = ITEM_TYPES[meta.typeId];
+    entry.scored = true;
+    const zone = Zones3D[entry.zoneId];
+    const def = ITEM_TYPES[entry.typeId];
     const correct = def.category === zone.category;
 
     let overlapSum = 0;
-    for (const other of this.bodies) {
-      if (other === entry) continue;
-      if (other.meta.zoneId !== zone.id) continue;
-      const dist = Matter.Vector.magnitude(Matter.Vector.sub(body.position, other.body.position));
-      const combined = (meta.approxRadius + other.meta.approxRadius) * 0.95;
+    for (const other of Physics3D.bodies) {
+      if (other === entry || other.zoneId !== zone.id) continue;
+      const dist = entry.position.distanceTo(other.position);
+      const combined = (entry.approxRadius + other.approxRadius) * 0.95;
       const overlapAmt = combined - dist;
       if (overlapAmt > 0) overlapSum += overlapAmt;
     }
-    const spacingScore = Math.max(0, Math.min(1, 1 - overlapSum / (meta.approxRadius * 2.2)));
+    const spacingScore = Math.max(0, Math.min(1, 1 - overlapSum / (entry.approxRadius * 2.2)));
 
     let sprayPenalty = 0;
     if (zone.sprayArm) {
-      const local = zone.toLocal(body.position.x, body.position.y);
-      const d = Math.hypot(local.x - zone.sprayArm.x, local.y - zone.sprayArm.y);
-      if (d < zone.sprayArm.r + meta.approxRadius) sprayPenalty = 25;
+      const local = zone.worldToLocalXZ(entry.position.x, entry.position.z);
+      const d = Math.hypot(local.x - zone.sprayArm.x, local.z - zone.sprayArm.z);
+      if (d < zone.sprayArm.r + entry.approxRadius) sprayPenalty = 25;
     }
 
     const base = correct ? 60 : 15;
@@ -269,9 +281,9 @@ const Game = {
       detail = `Yanlış yer (${zone.label})`;
     }
 
-    const screenPos = zone.toScreen(body.position.x, body.position.y);
-    this.addPopup(screenPos.x, screenPos.y, `+${score}`, score >= 70 ? '#4ade80' : score >= 35 ? '#ffb347' : '#f87171');
-    this.recordBreakdown(meta.typeId, zone.id, score, detail);
+    const screenPos = Scene3D.worldToScreen(entry.position);
+    this.addPopupAtScreen(screenPos.x, screenPos.y, `+${score}`, score >= 70 ? '#4ade80' : score >= 35 ? '#ffb347' : '#f87171');
+    this.recordBreakdown(entry.typeId, zone.id, score, detail);
     this.checkLevelDone();
   },
 
@@ -288,60 +300,7 @@ const Game = {
     toggleOverlay('screen-result', true);
   },
 
-  // ---------- Çizim ----------
-
   render() {
-    const ctx = this.ctx;
-    ctx.clearRect(0, 0, this.cssWidth, this.cssHeight);
-
-    ZONE_ORDER.forEach((id) => {
-      const zone = Zones[id];
-      Iso.drawPlatform(ctx, zone.transform, zone.physW, zone.physH, 16, zone.color);
-
-      ctx.font = '600 13px -apple-system, sans-serif';
-      ctx.fillStyle = 'rgba(255,255,255,0.75)';
-      const labelPos = Iso.toScreen(zone.transform, 4, -8);
-      ctx.fillText(zone.label, labelPos.x, labelPos.y);
-
-      for (const peg of zone.pegs) Iso.drawPeg(ctx, zone.transform, peg.x, peg.y, peg.r);
-
-      if (zone.sprayArm) {
-        const c = Iso.toScreen(zone.transform, zone.sprayArm.x, zone.sprayArm.y);
-        const s = Iso.avgScale(zone.transform);
-        ctx.beginPath();
-        ctx.ellipse(c.x, c.y, zone.sprayArm.r * s, zone.sprayArm.r * s * 0.7, 0, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(255,90,90,0.16)';
-        ctx.fill();
-        ctx.strokeStyle = 'rgba(255,120,120,0.55)';
-        ctx.setLineDash([4, 4]);
-        ctx.stroke();
-        ctx.setLineDash([]);
-      }
-    });
-
-    const sorted = this.bodies.slice().sort((a, b) => a.body.position.y - b.body.position.y);
-    for (const entry of sorted) {
-      const zone = Zones[entry.meta.zoneId];
-      const pos = zone.toScreen(entry.body.position.x, entry.body.position.y);
-      const scale = Iso.avgScale(zone.transform);
-      Iso.drawGroundShadow(ctx, pos.x, pos.y, entry.meta.approxRadius * scale, entry.meta.approxRadius * scale * 0.6);
-    }
-    for (const entry of sorted) {
-      const zone = Zones[entry.meta.zoneId];
-      const pos = zone.toScreen(entry.body.position.x, entry.body.position.y);
-      const scale = Iso.avgScale(zone.transform);
-      const def = ITEM_TYPES[entry.meta.typeId];
-      def.draw(ctx, pos.x, pos.y, scale, entry.body.angle);
-    }
-
-    ctx.textAlign = 'center';
-    for (const p of this.popups) {
-      ctx.globalAlpha = Math.max(0, p.life);
-      ctx.font = '700 15px -apple-system, sans-serif';
-      ctx.fillStyle = p.color;
-      ctx.fillText(p.text, p.x, p.y);
-      ctx.globalAlpha = 1;
-    }
-    ctx.textAlign = 'left';
+    Scene3D.render();
   },
 };
